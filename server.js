@@ -18,7 +18,7 @@ app.prepare().then(() => {
   });
 
   server.get("/about", (req, res) => {
-    res.send("Hello from about page");
+    return app.render(req, res, "/a", req.query);
   });
 
   server.all("*", (req, res) => {
