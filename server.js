@@ -1,32 +1,56 @@
-const express = require("express");
-const next = require("next");
+const express = require('express');
+const bodyParser = require('body-parser');
+const cors = require('cors');
 
-const port = parseInt(process.env.PORT, 10) || 3000;
-const dev = process.env.NODE_ENV !== "production";
-const app = next({ dev });
-const handle = app.getRequestHandler();
+const app = express();
+app.use(bodyParser.json());
+app.use(cors());
 
-app.prepare().then(() => {
-  const server = express();
+let sessions = {};
 
-  server.get("/a", (req, res) => {
-    return app.render(req, res, "/a", req.query);
-  });
+app.post('/control', (req, res) => {
+    const { action, value, sessionId } = req.body;
 
-  server.get("/b", (req, res) => {
-    return app.render(req, res, "/b", req.query);
-  });
+    if (!sessions[sessionId]) {
+        sessions[sessionId] = { url: '', status: 'stop', volume: 100, action: null, value: null };
+    }
 
-  server.get("/about", (req, res) => {
-    return app.render(req, res, "/a", req.query);
-  });
+    sessions[sessionId].action = action;
+    sessions[sessionId].value = value;
 
-  server.all("*", (req, res) => {
-    return handle(req, res);
-  });
+    res.json({ status: 'Command received', action, value, sessionId });
+});
 
-  server.listen(port, (err) => {
-    if (err) throw err;
-    console.log(`> Ready on http://localhost:${port}`);
-  });
+app.post('/update-url', (req, res) => {
+    const { url, sessionId } = req.body;
+
+    if (!sessions[sessionId]) {
+        sessions[sessionId] = { url: '', status: 'stop', volume: 100, action: null, value: null };
+    }
+
+    sessions[sessionId].url = url;
+    res.json({ status: 'URL updated', sessionId });
+});
+
+app.get('/current-url/:sessionId', (req, res) => {
+    const { sessionId } = req.params;
+
+    if (!sessions[sessionId]) {
+        return res.status(400).json({ error: 'Invalid session ID' });
+    }
+
+    res.json({
+        success: true,
+        sessionId,
+        url: sessions[sessionId].url,
+        status: sessions[sessionId].status,
+        volume: sessions[sessionId].volume,
+        action: sessions[sessionId].action,
+        value: sessions[sessionId].value
+    });
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
 });
